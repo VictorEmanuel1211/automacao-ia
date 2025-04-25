@@ -1,44 +1,66 @@
-# Projeto: **Automatização de Processamento de PDFs com Google Gemini**
+Claro! Aqui está um `README.md` no mesmo formato, adaptado para o seu código atualizado que usa a biblioteca `google.generativeai` com prompts, system instructions e PDF como input:
 
-Este projeto automatiza o processamento de arquivos PDF, utilizando inteligência artificial para extrair e interpretar informações através da API do Google Gemini. Ele combina textos extraídos de PDFs com prompts definidos para gerar respostas personalizadas, salvando-as em arquivos de texto.
+---
+
+# Projeto: **Automatização de PDFs com Prompts e Google Gemini**
+
+Este projeto automatiza o processamento de arquivos PDF utilizando inteligência artificial com a API do **Google Gemini**. Ele combina documentos PDF com instruções de sistema e prompts personalizados, gerando respostas baseadas em IA e salvando os resultados automaticamente.
 
 ## Funcionalidades
-- **Extração de texto de PDFs**: Lê e processa documentos PDF para extrair seu conteúdo textual.
-- **Integração com a API Google Gemini**: Envia conteúdos processados para a API e obtém respostas baseadas em inteligência artificial.
-- **Gerenciamento de pastas**: Processa múltiplos arquivos de entrada e organiza as saídas em diretórios específicos.
-- **Reutilização de prompts personalizados**: Combina conteúdo de documentos com prompts definidos pelo usuário.
+- **Envio de PDFs para o modelo Gemini**: Envia arquivos PDF diretamente para a API da Google.
+- **Aplicação de múltiplos prompts**: Usa arquivos `.txt` como prompts personalizados.
+- **System Instructions configuráveis**: Define instruções de sistema para guiar o comportamento da IA.
+- **Processamento em lote**: Lê todos os PDFs da pasta de entrada e salva cada resposta individualmente.
+- **Retentativas automáticas com espera exponencial** em caso de falha de conexão com a API.
 
 ## Como usar
-1. **Configuração inicial**:
-   - Instale as bibliotecas necessárias:
-     ```bash
-     pip install PyPDF2 requests google-auth
-     ```
-   - Configure sua conta Google Cloud:
-     - Baixe o arquivo JSON com as credenciais da conta de serviço e insira o caminho no código.
-   - Ajuste os diretórios (`pasta_entrada`, `pasta_saida`, `pasta_prompts`) conforme a localização dos seus arquivos.
 
-2. **Preparar os arquivos**:
-   - Coloque os PDFs na pasta de entrada.
-   - Adicione prompts personalizados (em `.txt`, `.md`, ou `.pdf`) na pasta de prompts.
+### 1. **Instalar as dependências**
+```bash
+pip install google-generativeai
+```
 
-3. **Executar o script**:
-   - Inicie o script:
-     ```bash
-     python Automação_IA.py
-     ```
-   - O processamento será executado e as respostas serão salvas na pasta de saída.
+### 2. **Preparar os diretórios**
+- **PASTA_ENTRADA**: coloque aqui os arquivos PDF que deseja processar.
+- **PASTA_PROMPTS**: adicione aqui arquivos `.txt` com os prompts que serão enviados para o modelo.
+- **PASTA_SYSTEM_INSTRUCTIONS**: adicione um arquivo `.txt` com instruções gerais para orientar o modelo Gemini.
+- **PASTA_SAIDA**: as respostas geradas serão salvas aqui com o mesmo nome do PDF original + `_RESPOSTA.txt`.
+
+### 3. **Configurar o script**
+Abra o código e altere as seguintes partes:
+- Substitua `"DIGITE_SUA_API_KEY_AQUI"` pela sua chave da API Gemini.
+- Substitua `"INSIRA_O_NOME_DO_MODELO_AQUI"` pelo modelo desejado (exemplo: `"gemini-1.5-pro"`).
+
+### 4. **Executar**
+```bash
+python seu_script.py
+```
+
+O script processará todos os arquivos PDF encontrados na pasta de entrada, aplicará os prompts um a um e salvará as respostas.
 
 ## Tecnologias usadas
-- **Python**: Linguagem de programação principal do projeto.
-- **PyPDF2**: Para leitura e extração de texto de PDFs.
-- **Google Cloud API**: Autenticação e envio de requisições à API Google Gemini.
-- **Requests**: Para envio de chamadas HTTP.
-- **Google Auth**: Gerenciamento de credenciais para autenticação segura.
+- **Python**: Linguagem principal do projeto.
+- **Google Generative AI SDK (`google-generativeai`)**: Para integração com o modelo Gemini.
+- **Standard Library (`os`, `time`, `sys`)**: Para manipulação de arquivos, controle de fluxo e tratamento de erros.
+
+## Estrutura recomendada de pastas
+
+```
+Automacao_Tribunal/
+├── pnf/                     # PDFs de entrada
+├── pf/                      # Saídas com respostas geradas
+├── prompts/                 # Prompts .txt para o modelo
+├── system_instructions/     # Instruções de sistema (.txt)
+├── seu_script.py            # Script principal
+```
 
 ## Contribuição
+
 Contribuições são bem-vindas! Para colaborar:
+
 1. Faça um fork do repositório.
-2. Crie uma branch para suas alterações:
+2. Crie uma branch com sua funcionalidade:
    ```bash
-   git checkout -b minha-nova-funcionalidade
+   git checkout -b minha-funcionalidade
+   ```
+3. Envie um pull request com uma descrição clara do que foi alterado.
