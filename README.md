@@ -1,4 +1,4 @@
-# Projeto: **Automação de PDFs com Prompts e Google Gemini**
+# Projeto: **Automação de PDFs em lote com a API do Google Gemini**
 
 Este projeto automatiza o processamento de arquivos PDF utilizando inteligência artificial com a API do **Google Gemini**. Ele combina documentos PDF com instruções de sistema e prompts personalizados, gerando respostas baseadas em IA e salvando os resultados automaticamente.
 
