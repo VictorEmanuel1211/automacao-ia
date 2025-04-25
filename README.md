@@ -8,7 +8,7 @@ Este projeto automatiza o processamento de arquivos PDF utilizando inteligência
 - **System Instructions configuráveis**: Define instruções de sistema para guiar o comportamento da IA.
 - **Processamento em lote**: Lê todos os PDFs da pasta de entrada e salva cada resposta individualmente.
 - **Retentativas automáticas com espera exponencial** em caso de falha de conexão com a API.
-
+- **Processamento de vários prompts** Pode ser adicionado vários prompts em sequência que o script irá enviar no mesmo histórico de cada arquivo PDF. 
 ## Como usar
 
 ### 1. **Instalar as dependências**
