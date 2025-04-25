@@ -1,110 +1,141 @@
-import os  # Para manipular arquivos e diretórios
-import PyPDF2  # Para extrair texto de arquivos PDF
-import requests  # Para enviar requisições HTTP, incluindo chamadas à API do Google Gemini
-from google.oauth2 import service_account  # Para autenticação usando credenciais do Google
-import google.auth.transport.requests  # Suporte para transporte de requisições autenticadas
-import time  # Para medir tempos de execução e realizar esperas
+import os
+import time
+import sys
+import google.generativeai as genai
+from pathlib import Path
 
-# Configuração de diretórios e modelo da API
-# Substituir pelas pastas de entrada/saída desejadas antes de usar
-pasta_entrada = "CAMINHO/DA/PASTA/ENTRADA"  # Insira o caminho dos PDFs a processar
-pasta_saida = "CAMINHO/DA/PASTA/SAIDA"  # Insira o caminho para salvar as respostas
-pasta_prompts = "CAMINHO/DA/PASTA/PROMPTS"  # Insira o caminho dos arquivos de prompts
-modelo_gemini = "gemini-1.5-pro-002"  # Modelo do Google Gemini (ajuste se necessário)
+# Diretórios principais do sistema
+PASTA_ENTRADA = "C:\\..."  # Coloque aqui os arquivos PDF que deseja processar
+PASTA_SAIDA = "C:\\..."  # As respostas geradas serão salvas aqui
+PASTA_PROMPTS = "C:\\..."  # Coloque aqui os arquivos .txt com os prompts
+PASTA_SYSTEM_INSTRUCTIONS = "C:\\..."  # Coloque aqui o arquivo .txt com as instruções do sistema
 
-# Configuração de credenciais
-# Substituir pelo caminho correto para o arquivo JSON com as credenciais do Google antes de usar
-caminho_arquivo_credenciais = "CAMINHO/PARA/ARQUIVO/CREDENCIAIS.JSON"
-credenciais = service_account.Credentials.from_service_account_file(
-    caminho_arquivo_credenciais,
-    scopes=["https://www.googleapis.com/auth/generative-language"]
-)
+# API Key do Google Gemini
+API_KEY = "DIGITE_SUA_API_KEY_AQUI"  # Substitua por sua chave de API
 
-# Função para extrair texto de arquivos (PDF ou texto simples)
-def extrair_texto(caminho, tipo):
-    """
-    Extrai o texto de um arquivo PDF ou texto simples (.txt ou .md).
-    - caminho: caminho completo do arquivo.
-    - tipo: "pdf" para PDFs, "txt" para arquivos de texto.
-    """
-    with open(caminho, "rb" if tipo == "pdf" else "r", encoding=None if tipo == "pdf" else "utf-8") as arq:
-        if tipo == "pdf":
-            return "".join(pagina.extract_text() for pagina in PyPDF2.PdfReader(arq).pages)
-        return arq.read()
+# Configuração dos parâmetros de geração do modelo
+GENERATION_CONFIG = {
+    "temperature": 0.5,
+    "top_p": 0.95,
+    "top_k": 40,
+    "max_output_tokens": 8192,
+}
 
-# Função para chamar a API do Google Gemini e obter a resposta
-def consultar_api_gemini(conteudo, tentativas=3, espera=5):
-    """
-    Envia um texto para a API do Google Gemini e retorna a resposta.
-    - conteudo: texto a ser processado pela API.
-    - tentativas: número máximo de tentativas em caso de erro.
-    - espera: tempo (em segundos) para aguardar entre tentativas.
-    """
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo_gemini}:generateContent"
-    credenciais.refresh(google.auth.transport.requests.Request())  # Atualiza o token de acesso
-    headers = {
-        "Authorization": f"Bearer {credenciais.token}",  # Token de autenticação
-        "Content-Type": "application/json"  # Tipo de conteúdo JSON
-    }
-    dados = {"contents": [{"parts": [{"text": conteudo}]}]}  # Formato esperado pela API
+def carregar_system_instructions():
+    try:
+        arquivos_txt = [f for f in os.listdir(PASTA_SYSTEM_INSTRUCTIONS) if f.endswith('.txt')]
+        if not arquivos_txt:
+            print("Nenhum arquivo de system instructions encontrado!")
+            return None
+        arquivo_instructions = arquivos_txt[0]
+        caminho_completo = os.path.join(PASTA_SYSTEM_INSTRUCTIONS, arquivo_instructions)
+        with open(caminho_completo, 'r', encoding='utf-8') as f:
+            system_instructions = f.read()
+            print(f"System instructions carregadas com sucesso de: {arquivo_instructions}")
+            return system_instructions
+    except Exception as e:
+        print(f"Erro ao carregar system instructions: {e}")
+        return None
 
-    for tentativa in range(tentativas):  # Realiza múltiplas tentativas em caso de erro
-        resposta = requests.post(url, headers=headers, json=dados)  # Envia a requisição
-        if resposta.status_code == 200:  # Se a resposta for bem-sucedida, retorna o texto
-            return resposta.json().get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-        if resposta.status_code == 503:  # Caso de sobrecarga no servidor
-            print(f"Tentativa {tentativa + 1} falhou. Tentando novamente em {espera}s...")
-            time.sleep(espera)
-    print(f"Erro na API: {resposta.status_code} - {resposta.text}")
-    return None  # Retorna None em caso de falha
+def configurar_modelo():
+    try:
+        genai.configure(api_key=API_KEY)
+        system_instructions = carregar_system_instructions()
+        if system_instructions is None:
+            raise Exception("Não foi possível carregar as system instructions")
+        return genai.GenerativeModel(
+            model_name="INSIRA_O_NOME_DO_MODELO_AQUI",  # Exemplo: "gemini-1.5-pro"
+            generation_config=GENERATION_CONFIG,
+            system_instruction=system_instructions
+        )
+    except Exception as e:
+        print(f"Erro ao configurar o modelo: {e}")
+        sys.exit(1)
 
-# Função para processar um único PDF
-def processar_pdf(nome_arquivo, prompt_completo):
-    """
-    Processa um único arquivo PDF, envia o conteúdo para a API e salva a resposta.
-    - nome_arquivo: nome do arquivo PDF.
-    - prompt_completo: prompt combinado com o conteúdo do arquivo.
-    """
-    caminho_pdf = os.path.join(pasta_entrada, nome_arquivo)  # Caminho completo do PDF
-    caminho_saida = os.path.join(pasta_saida, f"{os.path.splitext(nome_arquivo)[0]}_RESPOSTA.txt")  # Caminho do TXT
+def processar_pdf_com_gemini(caminho_pdf):
+    try:
+        with open(caminho_pdf, 'rb') as pdf_file:
+            pdf_content = pdf_file.read()
+        return {
+            "mime_type": "application/pdf",
+            "data": pdf_content
+        }
+    except Exception as e:
+        print(f"Erro ao processar PDF: {e}")
+        return None
 
-    print(f"Processando {nome_arquivo}...")
-    inicio = time.time()  # Marca o início do processamento
+def carregar_prompts():
+    prompts = []
+    arquivos_txt = sorted([
+        arquivo for arquivo in os.listdir(PASTA_PROMPTS)
+        if arquivo.endswith('.txt')
+    ])
+    for arquivo in arquivos_txt:
+        caminho_completo = os.path.join(PASTA_PROMPTS, arquivo)
+        try:
+            with open(caminho_completo, 'r', encoding='utf-8') as f:
+                prompts.append({
+                    'nome': arquivo,
+                    'conteudo': f.read()
+                })
+        except Exception as e:
+            print(f"Erro ao ler o arquivo {arquivo}: {e}")
+    return prompts
 
-    # Extrai o texto do PDF e combina com o prompt
-    texto = extrair_texto(caminho_pdf, "pdf")
-    resposta = consultar_api_gemini(f"{prompt_completo}\n\nTexto do Documento:\n{texto}")  # Chama a API
-    if resposta:  # Se houver resposta, salva em um arquivo de texto
+def chamar_api_gemini(chat_session, conteudo, documento, tentativas=3, espera=5):
+    for tentativa in range(tentativas):
+        try:
+            response = chat_session.send_message([conteudo, documento])
+            if response.text:
+                return response.text
+        except Exception as e:
+            print(f"\nErro na tentativa {tentativa + 1}: {e}. Esperando {espera}s...")
+            time.sleep(espera * (2 ** tentativa))
+    print(f"\nErro na API após {tentativas} tentativas.")
+    return None
+
+def processar_pdf(nome_arquivo, prompts, model):
+    caminho_pdf = os.path.join(PASTA_ENTRADA, nome_arquivo)
+    nome_base = os.path.splitext(nome_arquivo)[0]
+    caminho_saida = os.path.join(PASTA_SAIDA, f"{nome_base}_RESPOSTA.txt")
+    if os.path.exists(caminho_saida):
+        print(f"{nome_arquivo} já processado. Pulando...")
+        return
+    print(f"\nProcessando {nome_arquivo}...")
+    inicio = time.time()
+    documento = processar_pdf_com_gemini(caminho_pdf)
+    if not documento:
+        print(f"Falha ao processar o documento {nome_arquivo}")
+        return
+    chat_session = model.start_chat(history=[])
+    todas_respostas = []
+    for i, prompt in enumerate(prompts, 1):
+        print(f"Aplicando prompt {i} de {len(prompts)}...")
+        resposta = chamar_api_gemini(chat_session, prompt['conteudo'], documento)
+        if resposta:
+            todas_respostas.append(resposta + "\n\n\n\n")
+    if todas_respostas:
         with open(caminho_saida, "w", encoding="utf-8") as saida:
-            saida.write(resposta + "\n\n")
+            saida.write("".join(todas_respostas))
+        print(f"Todas as respostas salvas em: {caminho_saida}")
+    print(f"Tempo total para {nome_arquivo}: {int((time.time() - inicio) // 60)}m {int((time.time() - inicio) % 60)}s")
 
-    # Calcula o tempo gasto no processamento
-    print(f"Tempo para {nome_arquivo}: {int((time.time() - inicio) // 60)}m {int((time.time() - inicio) % 60)}s")
-
-# Função principal para processar todos os PDFs
-def processar_pdfs():
-    """
-    Processa todos os arquivos PDF na pasta de entrada, combinando com os prompts.
-    """
-    if not os.path.exists(pasta_saida):  # Cria a pasta de saída se não existir
-        os.makedirs(pasta_saida)
-
-    # Lê e combina o conteúdo de todos os arquivos de prompt
-    prompt_completo = "".join(
-        extrair_texto(os.path.join(pasta_prompts, arq), "pdf" if arq.endswith(".pdf") else "txt")
-        for arq in os.listdir(pasta_prompts)
-        if arq.endswith((".pdf", ".md", ".txt"))  # Filtra por tipos de arquivo suportados
-    )
-
-    # Marca o início do processamento total
+def processar_todos_pdfs():
+    prompts = carregar_prompts()
+    if not prompts:
+        print("Nenhum prompt encontrado na pasta de prompts!")
+        return
     inicio_total = time.time()
-    # Processa cada arquivo PDF encontrado na pasta de entrada
-    for arquivo in filter(lambda f: f.endswith(".pdf"), os.listdir(pasta_entrada)):
-        processar_pdf(arquivo, prompt_completo)
-
-    # Calcula e exibe o tempo total de processamento
+    arquivos = [f for f in os.listdir(PASTA_ENTRADA) if f.endswith(".pdf")]
+    total_arquivos = len(arquivos)
+    print(f"Encontrados {len(prompts)} prompts para processar.")
+    model = configurar_modelo()
+    for i, arquivo in enumerate(arquivos, 1):
+        print(f"\nProcessando arquivo {i} de {total_arquivos}")
+        processar_pdf(arquivo, prompts, model)
     tempo_total = time.time() - inicio_total
-    print(f"Tempo total: {int(tempo_total // 60)}m {int(tempo_total % 60)}s")
+    print(f"\nTempo total: {int(tempo_total // 60)}m {int(tempo_total % 60)}s")
+    print("Todos os processos foram finalizados com sucesso!")
 
-# Início da execução
-processar_pdfs()
+if __name__ == "__main__":
+    processar_todos_pdfs()
